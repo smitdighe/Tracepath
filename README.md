@@ -27,7 +27,7 @@ is a state you can pause on, rewind to, or replay at any speed.
 
 <div align="center">
 
-🔗 **Live demo:** [DEPLOYED_URL]
+🔗 **Live demo:** [Tracepath](https://tracepath.vercel.app/)
 
 </div>
 
