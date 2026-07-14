@@ -109,9 +109,9 @@ simulation to re-run, only an index to move.
 | Layer | Technology | Purpose |
 |:------|:-----------|:--------|
 | ⚛️ Frontend | React + Vite | Core UI framework and bundler |
+| 🗄️ Backend | None | Fully client-side — every algorithm runs in-browser, zero API calls |
 | 🎬 Animation | Framer Motion | State-transition springs, staggered node entrance, edge draw-on trace |
 | 🎨 Styling | Custom CSS (design tokens) | Single-accent dark theme, no component library |
-| 🗄️ Backend | None | Fully client-side — every algorithm runs in-browser, zero API calls |
 | ☁️ Hosting | Vercel | Static Vite build, zero-config deploy |
 
 ---
