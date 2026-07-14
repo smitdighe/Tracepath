@@ -34,50 +34,75 @@ function circularLayout(graph) {
   return positions;
 }
 
+// Layout stays inside a 100px margin of the 0–1000 space so nodes (r=24)
+// never clip against the viewBox edge.
+const MARGIN = 100;
+const SPAN = 1000 - 2 * MARGIN; // 800
+
 function layeredLayout(graph) {
   const positions = new Map();
   const ids = graph.nodes.map((node) => node.id);
+  if (ids.length === 0) return positions;
 
-  // predecessors per node, from directed edges
+  // predecessors + successors from directed edges (edge order preserved)
   const preds = new Map(ids.map((id) => [id, []]));
+  const succ = new Map(ids.map((id) => [id, []]));
   for (const edge of graph.edges) {
     if (preds.has(edge.to)) preds.get(edge.to).push(edge.from);
+    if (succ.has(edge.from)) succ.get(edge.from).push(edge.to);
   }
 
-  // longest-path-from-root layering: layer[v] = max(layer[u] + 1) over u->v
-  // roots (no predecessors) land on layer 0. Memoized; graph is acyclic here.
+  // Vertical (layer): longest-path layering — layer[v] = max(layer[u] + 1)
+  // over ALL predecessors u->v (a node with parents at different depths sits
+  // below the deepest one). Roots (no predecessors) land on layer 0.
   const memo = new Map();
+  const inFlight = new Set();
   function longestFromRoot(id) {
     if (memo.has(id)) return memo.get(id);
+    if (inFlight.has(id)) return 0; // defensive; graph is acyclic here
+    inFlight.add(id);
     let best = 0;
     for (const p of preds.get(id) || []) {
       best = Math.max(best, longestFromRoot(p) + 1);
     }
+    inFlight.delete(id);
     memo.set(id, best);
     return best;
   }
-
   const layer = new Map(ids.map((id) => [id, longestFromRoot(id)]));
+  const maxLayer = Math.max(0, ...ids.map((id) => layer.get(id)));
 
-  // bucket nodes by layer, preserving graph.nodes order for determinism
-  const buckets = new Map();
-  for (const id of ids) {
-    const l = layer.get(id);
-    if (!buckets.has(l)) buckets.set(l, []);
-    buckets.get(l).push(id);
+  // Horizontal (order): a global left-to-right DFS ordering. Each node gets a
+  // distinct column, so the drawing always uses the canvas width instead of
+  // collapsing single-node layers onto the centre line. Subtrees stay
+  // contiguous, which keeps edge crossings low. Roots are seeded in node
+  // order, then any remaining nodes (disconnected components) follow.
+  const roots = ids.filter((id) => (preds.get(id) || []).length === 0);
+  const seen = new Set();
+  const order = new Map();
+  let counter = 0;
+  for (const seed of [...roots, ...ids]) {
+    if (seen.has(seed)) continue;
+    const stack = [seed];
+    while (stack.length > 0) {
+      const id = stack.pop();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      order.set(id, counter++);
+      const kids = succ.get(id) || [];
+      for (let i = kids.length - 1; i >= 0; i--) {
+        if (!seen.has(kids[i])) stack.push(kids[i]);
+      }
+    }
   }
 
-  const layerGap = 150;
-  const width = 1000;
+  // Map order -> x and layer -> y, both scaled to fit [MARGIN, 1000-MARGIN].
+  const lastOrder = ids.length - 1;
+  const xOf = (o) => (lastOrder === 0 ? 500 : MARGIN + (o * SPAN) / lastOrder);
+  const yOf = (l) => (maxLayer === 0 ? 500 : MARGIN + (l * SPAN) / maxLayer);
 
-  for (const [l, members] of buckets) {
-    const count = members.length;
-    members.forEach((id, i) => {
-      // evenly space across width; single node centers at 500
-      const x = count === 1 ? width / 2 : (width * (i + 1)) / (count + 1);
-      const y = 100 + l * layerGap;
-      positions.set(id, { x, y });
-    });
+  for (const id of ids) {
+    positions.set(id, { x: xOf(order.get(id)), y: yOf(layer.get(id)) });
   }
 
   return positions;
