@@ -1,0 +1,435 @@
+/* ============================================================
+   Tracepath — single source of truth for design tokens.
+   Every color / font / spacing value lives here as a CSS
+   custom property. JS (colors.js, motion.js) reads these back
+   via getComputedStyle, so no hex is ever written twice.
+   ============================================================ */
+
+:root {
+  /* ---- surfaces ---- */
+  --bg-0: #0a0a0f;
+  --bg-1: #0d0d12;
+  --panel: rgba(18, 18, 26, 0.72);
+  --panel-solid: #12121a;
+  --panel-border: rgba(255, 255, 255, 0.07);
+  --panel-border-hi: rgba(255, 255, 255, 0.12);
+
+  /* ---- text ---- */
+  --text-hi: #e7e8ec;
+  --text-lo: #7d828c;
+  --text-on-accent: #04141a;
+
+  /* ---- accent (single hue: electric cyan) + derived states ---- */
+  --accent: #22e0e6;
+  --accent-strong: #7ef1f5;
+  --accent-muted: #4a8f92;
+
+  --node-idle-fill: transparent;
+  --node-idle-stroke: rgba(150, 160, 175, 0.28);
+  --node-visited: var(--accent-muted);
+  --node-frontier: var(--accent);
+  --node-current: var(--accent-strong);
+
+  --edge-idle: rgba(150, 160, 175, 0.16);
+  --edge-traversed: var(--accent);
+
+  /* ---- typography ---- */
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  /* ---- spacing / radius ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-pill: 999px;
+
+  /* ---- effects ---- */
+  --shadow-panel: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --ring-focus: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--accent);
+
+  /* ---- semantic: error/validation only ---- */
+  --danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text-hi);
+  background:
+    radial-gradient(120% 120% at 15% 0%, var(--bg-1) 0%, var(--bg-0) 55%);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "zero" 1, "ss01" 1;
+}
+
+/* ---- reusable panel ---- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ---- canvas empty state ---- */
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-6);
+  text-align: center;
+  user-select: none;
+}
+
+.canvas-empty__mark {
+  opacity: 0.5;
+}
+
+.canvas-empty__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-hi);
+}
+
+.canvas-empty__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+/* ---- legend ---- */
+.legend {
+  position: absolute;
+  left: var(--sp-4);
+  bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  display: grid;
+  gap: var(--sp-2);
+  font-size: 12px;
+  line-height: 1;
+  z-index: 4;
+}
+
+.legend__title {
+  margin: 0 0 var(--sp-1);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.legend__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-hi);
+}
+
+.legend__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+.legend__edge {
+  width: 20px;
+  height: 0;
+  border-top: 2px solid var(--edge-traversed);
+  flex: none;
+}
+
+/* ============================================================
+   App shell + controls (Phase 8). Structural only — every
+   color/font/space value references a token defined above.
+   ============================================================ */
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.app__header {
+  padding: var(--sp-5) var(--sp-6);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.app__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-hi);
+}
+
+.app__tagline {
+  margin: var(--sp-1) 0 0;
+  font-size: 13px;
+  color: var(--text-lo);
+}
+
+.app__body {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 300px;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  min-height: 0;
+}
+
+@media (max-width: 1180px) {
+  .app__body {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-height: 0;
+}
+
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+}
+
+.inspector {
+  min-width: 0;
+  overflow: auto;
+  align-self: start;
+}
+
+/* ---- sections / fields ---- */
+.section {
+  padding: var(--sp-4);
+}
+
+.section__title {
+  margin: 0 0 var(--sp-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-hi);
+  background: var(--bg-0);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+  outline: none;
+}
+
+.textarea:focus,
+.select:focus,
+.input:focus {
+  border-color: var(--accent);
+}
+
+.select,
+.input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-hi);
+  background: var(--bg-0);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  outline: none;
+}
+
+/* ---- buttons ---- */
+.btn {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-hi);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-4);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--panel-border-hi);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn--accent {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.btn--accent:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.btn--icon {
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.error-text {
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ---- playback bar ---- */
+.playbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.playbar__counter {
+  font-size: 12.5px;
+  color: var(--text-lo);
+  min-width: 104px;
+}
+
+.playbar__spacer {
+  flex: 1;
+}
+
+.playbar__speed {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-lo);
+}
+
+.playbar__speed input[type="range"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---- state inspector ---- */
+.inspector__block {
+  margin-bottom: var(--sp-4);
+}
+
+.inspector__block:last-child {
+  margin-bottom: 0;
+}
+
+.inspector__k {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+  margin-bottom: var(--sp-2);
+}
+
+.inspector__v {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-hi);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-hi);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  margin: 0 4px 4px 0;
+}

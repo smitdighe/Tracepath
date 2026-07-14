@@ -1,0 +1,4 @@
+/* Base + tokens live in src/styles/theme.css (linked from index.html). */
+#root {
+  height: 100%;
+}
